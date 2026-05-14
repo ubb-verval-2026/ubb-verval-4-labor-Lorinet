@@ -1,12 +1,13 @@
-using System;
-using System.Diagnostics;
-using System.Reflection;
-using System.Text;
 using FluentAssertions;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
 using OpenQA.Selenium.Support.UI;
 using SeleniumExtras.WaitHelpers;
+using System;
+using System.Diagnostics;
+using System.Globalization;
+using System.Reflection;
+using System.Text;
 
 namespace DatesAndStuff.Web.Tests;
 
@@ -96,30 +97,85 @@ public class PersonPageTests
         }
         Assert.That(verificationErrors.ToString(), Is.EqualTo(""));
     }
-
-    [Test]
-    public void Person_SalaryIncrease_ShouldIncrease()
+    [TestCase(5, 5250)]
+    [TestCase(10, 5500)]
+    [TestCase(0, 5000)]
+    [TestCase(20, 6000)]
+    [TestCase(50, 7500)]
+    [TestCase(100, 10000)]
+    public void Person_SalaryIncrease_ShouldIncrease(double percentage, double expectedSalary)
     {
         // Arrange
         driver.Navigate().GoToUrl(BaseURL);
         driver.FindElement(By.XPath("//*[@data-test='PersonPageNavigation']")).Click();
 
         var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(5));
+        wait.IgnoreExceptionTypes(typeof(StaleElementReferenceException));
+
+        wait.Until(d =>
+        {
+            var el = d.FindElement(By.XPath("//*[@data-test='SalaryIncreasePercentageInput']"));
+            el.Clear();
+            el.SendKeys(percentage.ToString(CultureInfo.InvariantCulture));
+            return true;
+        });
 
         var input = wait.Until(ExpectedConditions.ElementExists(By.XPath("//*[@data-test='SalaryIncreasePercentageInput']")));
         input.Clear();
-        input.SendKeys("5");
+        input.SendKeys(percentage.ToString(CultureInfo.InvariantCulture));
 
         // Act
         var submitButton = wait.Until(ExpectedConditions.ElementExists(By.XPath("//*[@data-test='SalaryIncreaseSubmitButton']")));
         submitButton.Click();
 
-
         // Assert
         var salaryLabel = wait.Until(ExpectedConditions.ElementExists(By.XPath("//*[@data-test='DisplayedSalary']")));
-        var salaryAfterSubmission = double.Parse(salaryLabel.Text);
-        salaryAfterSubmission.Should().BeApproximately(5250, 0.001);
+        var salaryAfterSubmission = double.Parse(salaryLabel.Text, CultureInfo.InvariantCulture);
+        salaryAfterSubmission.Should().BeApproximately(expectedSalary, 0.001);
     }
+
+    [TestCase(-11)]
+    [TestCase(-15)]
+    [TestCase(-50)]
+    [TestCase(-100)]
+    public void Person_SalaryIncrease_BelowMinusTen_ShouldShowErrorMessages(double percentage)
+    {
+        // Arrange
+        driver.Navigate().GoToUrl(BaseURL);
+        driver.FindElement(By.XPath("//*[@data-test='PersonPageNavigation']")).Click();
+
+        var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(5));
+        wait.IgnoreExceptionTypes(typeof(StaleElementReferenceException));
+
+        wait.Until(d =>
+        {
+            var el = d.FindElement(By.XPath("//*[@data-test='SalaryIncreasePercentageInput']"));
+            el.Clear();
+            el.SendKeys(percentage.ToString(CultureInfo.InvariantCulture));
+            return true;
+        });
+
+        var input = wait.Until(ExpectedConditions.ElementExists(By.XPath("//*[@data-test='SalaryIncreasePercentageInput']")));
+        input.Clear();
+        input.SendKeys(percentage.ToString(CultureInfo.InvariantCulture));
+
+        // Act
+        var submitButton = wait.Until(ExpectedConditions.ElementExists(By.XPath("//*[@data-test='SalaryIncreaseSubmitButton']")));
+        submitButton.Click();
+
+        // Assert
+        var topError = wait.Until(ExpectedConditions.ElementIsVisible(
+            By.XPath("//*[@data-test='SalaryIncreaseValidationSummary']")));
+        topError.Displayed.Should().BeTrue();
+        topError.Text.Should().NotBeNullOrWhiteSpace();
+
+        // Assert
+        var fieldError = wait.Until(ExpectedConditions.ElementIsVisible(
+            By.XPath("//*[@data-test='SalaryIncreasePercentageError']")));
+        fieldError.Displayed.Should().BeTrue();
+        fieldError.Text.Should().NotBeNullOrWhiteSpace();
+    }
+
     private bool IsElementPresent(By by)
     {
         try
