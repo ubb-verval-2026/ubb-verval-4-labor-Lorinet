@@ -2,6 +2,7 @@
 using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
 using OpenQA.Selenium.Support.UI;
+using System.Globalization;
 
 namespace DatesAndStuff.Web.Tests;
 
@@ -10,6 +11,9 @@ public class BlazeDemoTest
 {
     private IWebDriver driver;
     private const string BaseURL = "https://blazedemo.com/";
+    private const double PriceThreshold = 400.0;
+    private static readonly string ScreenshotFolder = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+
 
     [SetUp]
     public void SetUp()
@@ -52,5 +56,18 @@ public class BlazeDemoTest
 
         flightRows.Count.Should().BeGreaterThanOrEqualTo(3,
             because: "mexico -> dublin should have more flights");
+        var cheapFlights = flightRows
+            .Select(row => row.FindElements(By.TagName("td")).Last().Text)
+            .Select(text => double.Parse(text.TrimStart('$'), CultureInfo.InvariantCulture))
+            .Where(price => price < PriceThreshold)
+            .ToList();
+
+        if (cheapFlights.Any())
+        {
+            var screenshot = ((ITakesScreenshot)driver).GetScreenshot();
+            var path = Path.Combine(ScreenshotFolder,
+            $"sshot.png");
+            screenshot.SaveAsFile(path);
+        }
     }
 }
