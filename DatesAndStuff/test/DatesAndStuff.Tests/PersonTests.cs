@@ -105,7 +105,7 @@ public class PersonTests
         // throw new NotImplementedException();
     }
 
-    [TestCase(-10)]
+    [TestCase(-10.001)]
     [TestCase(-11)]
     [TestCase(-15)]
     [TestCase(-50)]
@@ -122,6 +122,6 @@ public class PersonTests
         // Assert
         act.Should().Throw<ArgumentOutOfRangeException>();
         sut.Salary.Should().Be(initialSalary,
-            because: "salary does not need to be decreased");
+            because: "salary does not need to be deceased");
     }
 }
